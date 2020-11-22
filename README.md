@@ -15,7 +15,7 @@ cd drunk-drivers
 python3 play.py
 ```
 
-Upload changes
+Upload changes made on $your_file$
 ```
 cd drunk-drivers
 git add $your_file$
@@ -25,6 +25,7 @@ git push
 
 Download changes
 ```
+cd drunk-drivers
 git pull
 ```
 
