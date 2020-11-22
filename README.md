@@ -6,7 +6,7 @@ Install pybullet_robots
 Clone repository
 ```
 cd $path$
-git clone git clone https://github.com/peconver/drunk-drivers.git
+git clone https://github.com/peconver/drunk-drivers.git
 ```
 
 Run simulation
