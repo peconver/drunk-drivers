@@ -14,6 +14,8 @@ Run simulation
 cd drunk-drivers
 python3 play.py
 ```
+For reset in simulation press 'i'
+
 
 Upload changes made on $your_file$
 ```
