@@ -1,7 +1,7 @@
 # drunk-drivers
 Reinforcement learning to teach a humanoid robot to step out of a car in simulation
 
-Install pybullet_robots
+Install pybullet_robots, gym ... just solve all import errors :)
 
 Clone repository
 ```
