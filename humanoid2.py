@@ -28,10 +28,10 @@ class HumanoidBulletEnv(gym.Env):
         # Load actual robot into the world
         shift_x = .8
         shift_z = .17
-        self.car = p.loadURDF("polaris.urdf", [-shift_x, 0, (shift_z+0.32)], useFixedBase=True, physicsClientId=self.client_ID, globalScaling=.97)
+        self.car = p.loadURDF("models/polaris.urdf", [-shift_x, 0, (shift_z+0.32)], useFixedBase=True, physicsClientId=self.client_ID, globalScaling=.97)
         self.plane = p.loadURDF("plane.urdf", [-shift_x, 0, shift_z], physicsClientId=self.client_ID)  # Floor
         #time.sleep(1)
-        self.robot = p.loadMJCF("humanoid_symmetric_no_ground.xml", physicsClientId=self.client_ID)  # humanoid
+        self.robot = p.loadMJCF("models/humanoid_symmetric_no_ground.xml", physicsClientId=self.client_ID)  # humanoid
         self.robot = self.robot[0]
         p.resetJointState(self.robot, 9, -1.57)
         p.resetJointState(self.robot, 16, -1.57)
@@ -270,6 +270,16 @@ class HumanoidBulletEnv(gym.Env):
             return punishment
         return 0
         
+    def r_standing(self):
+        max_limit = 2 # correct
+        min_limit = 0.5 # correct
+        left_shoulder = p.getLinkState(self.robot,self.left_shoulder)[0][2]
+        right_shoulder = p.getLinkState(self.robot,self.right_shoulder)[0][2]
+        if (left_shoulder < max_limit or right_shoulder < max_limit):
+            reward = min(left_shoulder, right_shoulder) - min_limit
+        else:
+            reward = max_limit - min_limit
+        return reward
 
 model = HumanoidBulletEnv(True)
 p.setRealTimeSimulation(1)
@@ -281,3 +291,6 @@ while(1):
         if (keys[k] & p.KEY_WAS_TRIGGERED):
             if (k == ord('i')):
                 model.reset()
+          
+                
+                
