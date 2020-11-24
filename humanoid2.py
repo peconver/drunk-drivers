@@ -51,6 +51,13 @@ class HumanoidBulletEnv(gym.Env):
                 self.left_foot = j
             if link_name == "right_foot":
                 self.right_foot = j
+            if link_name == "pelvis":
+                self.pelvis = j
+            if link_name == "link0_21":
+                self.right_shoulder = j
+            if link_name == "link0_26":
+                self.left_shoulder = j
+
 
         # Input and output dimensions defined in the environment
         self.obs_dim = 23  # joints + torques + if standing on floor
@@ -247,6 +254,22 @@ class HumanoidBulletEnv(gym.Env):
 
         return dist_t + (dist_l + dist_r)*0.5
 
+    def r_tumble(self):
+
+        punishment = -100
+        
+        left_foot = p.getLinkState(self.robot,self.left_foot)[0][2]
+        right_foot = p.getLinkState(self.robot,self.right_foot)[0][2]
+        stomach = p.getLinkState(self.robot,self.pelvis)[0][2]
+        left_shoulder = p.getLinkState(self.robot,self.left_shoulder)[0][2]
+        right_shoulder = p.getLinkState(self.robot,self.right_shoulder)[0][2]
+        foot = max(left_foot, right_foot)
+        shoulder = min(left_shoulder, right_shoulder)
+
+        if foot >= stomach or foot >= shoulder or stomach >= shoulder:
+            return punishment
+        return 0
+        
 
 model = HumanoidBulletEnv(True)
 p.setRealTimeSimulation(1)
