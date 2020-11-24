@@ -69,8 +69,9 @@ class HumanoidBulletEnv(gym.Env):
         self.target_vel = 0.4
         self.sim_steps_per_iter = 24  # The amount of simulation steps done every iteration.
         self.lateral_friction = 1.0
-        self.l_foot_target = np.array([.4, 1.1,0])
-        self.r_foot_target = np.array([.4, .9,0])
+        self.torso_target = np.array([0, (1.22+0.15)/2.0 + 0.6, 0])
+        self.l_foot_target = np.array([0, (1.22+0.15)/2.0 + 0.6, 0])
+        self.r_foot_target = np.array([0, (1.22+0.15)/2.0 + 0.4, 0])
 
         self.joints_index = np.array([0, 1, 3, 5, 6, 7, 9, 12, 13, 14, 16, 19, 20, 22, 24, 25, 27])
 
@@ -118,6 +119,8 @@ class HumanoidBulletEnv(gym.Env):
             joint_angles.append(o[0])
             joint_velocities.append(o[1])
             joint_torques.append(o[3])
+        # add positions of links to observation instead of contacts>
+        # [l[4] for l in p.getLinkStates(self.robot, range(0, 13+1), physicsClientId=self.client_ID)]
         return torso_pos, torso_quat, torso_vel, torso_angular_vel, joint_angles, joint_velocities, joint_torques, contacts
 
     def step(self, ctrl):
@@ -232,6 +235,17 @@ class HumanoidBulletEnv(gym.Env):
             dist = abs(link[4][1]-car_half_wide)
             reward -= dist
         return reward
+    
+    def r_close_to_target(self):
+        l_vec_target = p.getLinkState(self.robot, self.left_foot)[0] - self.l_foot_target
+        dist_l = np.linalg.norm(l_vec_target) 
+        r_vec_target = p.getLinkState(self.robot, self.right_foot)[0] - self.r_foot_target
+        dist_r = np.linalg.norm(r_vec_target)
+        t_vec_target = p.getBasePositionAndOrientation(self.robot, physicsClientId=self.client_ID)[0] - self.torso_target
+        # ignore z coordinate, should be good when xy are correct and joints are set
+        dist_t = np.linalg.norm(t_vec_target[:2])
+
+        return dist_t + (dist_l + dist_r)*0.5
 
 
 model = HumanoidBulletEnv(True)
