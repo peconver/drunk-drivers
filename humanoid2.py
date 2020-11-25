@@ -172,9 +172,9 @@ class HumanoidBulletEnv(gym.Env):
         # You can use other similar heuristics to 'guide' the agent into doing what you actually want it to do.
         r = r_links_outside()
         if r > -0.5:
-            r = 2r + 7r_standing() + 10r_close_to_target() + r_tumble()
+            r = 2*r + 7*r_standing() + 10*r_close_to_target() + r_tumble()
         else:
-            r = 7r + r_tumble() + 5*r_close_to_target()
+            r = 7*r + r_tumble() + 5*r_close_to_target()
         """reward
         """
 
