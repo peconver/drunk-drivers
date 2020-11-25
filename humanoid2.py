@@ -269,17 +269,24 @@ class HumanoidBulletEnv(gym.Env):
         if (foot >= stomach or foot >= shoulder or stomach >= shoulder) or (shoulder < 0.5 and stomach < 0.5):
             return punishment
         return 0
-        
+    
     def r_standing(self):
-        max_limit = 2 # correct
-        min_limit = 0.5 # correct
+        max_limit = 1.4 # approx height of shoulder when standing straight
+        min_limit = 0.7 # approx height of shoulder when sitting straight
+        punishment = -100
         left_shoulder = p.getLinkState(self.robot,self.left_shoulder)[0][2]
         right_shoulder = p.getLinkState(self.robot,self.right_shoulder)[0][2]
+        
         if (left_shoulder < max_limit or right_shoulder < max_limit):
             reward = min(left_shoulder, right_shoulder) - min_limit
         else:
             reward = max_limit - min_limit
+            
+        # if shoulder is too low, punish
+        if (min(left_shoulder, right_shoulder) < min_limit):
+            reward = punishment
         return reward
+
 
 model = HumanoidBulletEnv(True)
 p.setRealTimeSimulation(1)
