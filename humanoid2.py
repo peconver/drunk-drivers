@@ -76,7 +76,7 @@ class HumanoidBulletEnv(gym.Env):
         self.target_vel = 0.4
         self.sim_steps_per_iter = 24  # The amount of simulation steps done every iteration.
         self.lateral_friction = 1.0
-        self.torso_target = np.array([0, (1.22+0.15)/2.0 + 0.6, 0])
+        self.torso_target = np.array([0, (1.22+0.15)/2.0 + 0.5, 0])
         self.l_foot_target = np.array([0, (1.22+0.15)/2.0 + 0.6, 0])
         self.r_foot_target = np.array([0, (1.22+0.15)/2.0 + 0.4, 0])
 
