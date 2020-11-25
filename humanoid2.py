@@ -136,7 +136,7 @@ class HumanoidBulletEnv(gym.Env):
         :param ctrl: list or array of target joint angles normalized to [-1,1]
         :return: next_obs, r, done, _  . The last '_' value is left as compatability with gym envs.
         '''
-
+    
         ctrl_noisy = ctrl + np.random.rand(self.act_dim).astype(np.float32) * 0.1 - 0.05
 
         # YOU CAN REMOVE THIS CLIP IF YOU WANT
@@ -170,14 +170,11 @@ class HumanoidBulletEnv(gym.Env):
         """
         # Add various rewards here to your liking. For example, np.square(yaw) * 0.5 will penalise the robot facing directions other than the x direction
         # You can use other similar heuristics to 'guide' the agent into doing what you actually want it to do.
-
-        # reward increasing when feet get closer to plane
-        r_contact = -(contacts[0] + contacts[1])# / self.max_steps * 100
-        # negative reward for wrong orientation, small at beggining and larger at end
-        r_angle = (np.square(yaw) * 0.1 + np.square(pitch) * 0.5 + np.square(roll) * 0.1) #/ (self.max_steps - self.step_ctr)
-
-        r = np.clip(r_contact, -3, 3)
-        r = r_contact * 100
+        r = r_links_outside()
+        if r > -0.5:
+            r = 2r + 7r_standing() + 10r_close_to_target() + r_tumble()
+        else:
+            r = 7r + r_tumble() + 5*r_close_to_target()
         """reward
         """
 
