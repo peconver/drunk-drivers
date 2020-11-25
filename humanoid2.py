@@ -266,7 +266,7 @@ class HumanoidBulletEnv(gym.Env):
         foot = max(left_foot, right_foot)
         shoulder = min(left_shoulder, right_shoulder)
 
-        if foot >= stomach or foot >= shoulder or stomach >= shoulder:
+        if (foot >= stomach or foot >= shoulder or stomach >= shoulder) or (shoulder < 0.5 and stomach < 0.5):
             return punishment
         return 0
         
