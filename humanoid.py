@@ -1,9 +1,11 @@
-import time
-
-import gym
+import os
 import numpy as np
+from numpy.lib.function_base import angle
 import pybullet as p
 import pybullet_data
+from math import pi
+import time
+import gym
 from gym import spaces
 
 
@@ -49,6 +51,13 @@ class HumanoidBulletEnv(gym.Env):
                 self.left_foot = j
             if link_name == "right_foot":
                 self.right_foot = j
+            if link_name == "pelvis":
+                self.pelvis = j
+            if link_name == "link0_21":
+                self.right_shoulder = j
+            if link_name == "link0_26":
+                self.left_shoulder = j
+
 
         # Input and output dimensions defined in the environment
         self.obs_dim = 23  # joints + torques + if standing on floor
@@ -67,8 +76,9 @@ class HumanoidBulletEnv(gym.Env):
         self.target_vel = 0.4
         self.sim_steps_per_iter = 24  # The amount of simulation steps done every iteration.
         self.lateral_friction = 1.0
-        self.l_foot_target = np.array([.4, 1.1,0])
-        self.r_foot_target = np.array([.4, .9,0])
+        self.torso_target = np.array([0, (1.22+0.15)/2.0 + 0.5, 0])
+        self.l_foot_target = np.array([0, (1.22+0.15)/2.0 + 0.6, 0])
+        self.r_foot_target = np.array([0, (1.22+0.15)/2.0 + 0.4, 0])
 
         self.joints_index = np.array([0, 1, 3, 5, 6, 7, 9, 12, 13, 14, 16, 19, 20, 22, 24, 25, 27])
 
@@ -101,9 +111,9 @@ class HumanoidBulletEnv(gym.Env):
 
         #distance of each foot to target position
         l_vec_target = p.getLinkState(self.robot, self.left_foot)[0] - self.l_foot_target
-        ctct_l = np.linalg.norm(l_vec_target)
+        ctct_l = np.linalg.norm(l_vec_target) 
         r_vec_target = p.getLinkState(self.robot, self.right_foot)[0] - self.r_foot_target
-        ctct_r = np.linalg.norm(r_vec_target)
+        ctct_r = np.linalg.norm(r_vec_target) 
 
         contacts = [ctct_l, ctct_r]
 
@@ -116,6 +126,8 @@ class HumanoidBulletEnv(gym.Env):
             joint_angles.append(o[0])
             joint_velocities.append(o[1])
             joint_torques.append(o[3])
+        # add positions of links to observation instead of contacts>
+        # [l[4] for l in p.getLinkStates(self.robot, range(0, 13+1), physicsClientId=self.client_ID)]
         return torso_pos, torso_quat, torso_vel, torso_angular_vel, joint_angles, joint_velocities, joint_torques, contacts
 
     def step(self, ctrl):
@@ -124,7 +136,7 @@ class HumanoidBulletEnv(gym.Env):
         :param ctrl: list or array of target joint angles normalized to [-1,1]
         :return: next_obs, r, done, _  . The last '_' value is left as compatability with gym envs.
         '''
-
+    
         ctrl_noisy = ctrl + np.random.rand(self.act_dim).astype(np.float32) * 0.1 - 0.05
 
         # YOU CAN REMOVE THIS CLIP IF YOU WANT
@@ -158,16 +170,14 @@ class HumanoidBulletEnv(gym.Env):
         """
         # Add various rewards here to your liking. For example, np.square(yaw) * 0.5 will penalise the robot facing directions other than the x direction
         # You can use other similar heuristics to 'guide' the agent into doing what you actually want it to do.
-
-        # reward increasing when feet get closer to plane
-        r_contact = -(contacts[0] + contacts[1])# / self.max_steps * 100
-        # negative reward for wrong orientation, small at beggining and larger at end
-        r_angle = (np.square(yaw) * 0.1 + np.square(pitch) * 0.5 + np.square(roll) * 0.1) #/ (self.max_steps - self.step_ctr)
-
-        r = np.clip(r_contact, -3, 3)
-        r = r_contact * 100
+        r = self.r_links_outside()
+        if r > -0.5:
+            r = 2*r + 7*self.r_standing() + 10*self.r_close_to_target() + self.r_tumble()
+        else:
+            r = 7*r + self.r_tumble() + 5*self.r_close_to_target()
         """reward
         """
+        # print('reward', r)
 
         # Scale joint angles and make the policy observation
         scaled_joint_angles = self.rads_to_norm(joint_angles)
@@ -222,3 +232,71 @@ class HumanoidBulletEnv(gym.Env):
         '''
         return np.array(action) #(np.array(action) * 0.5 + 0.5) * self.joints_rads_diff + self.joints_rads_low
 
+    def r_links_outside(self):
+        car_half_wide = (1.22+0.15)/2.0
+        reward = 0
+        s = p.getLinkStates(self.robot, range(0, 13+1), physicsClientId=self.client_ID)
+        for link in s:
+            dist = link[4][1] - car_half_wide
+            reward -= max(dist, 0)
+        return reward
+    
+    def r_close_to_target(self):
+        l_vec_target = p.getLinkState(self.robot, self.left_foot)[0] - self.l_foot_target
+        dist_l = np.linalg.norm(l_vec_target) 
+        r_vec_target = p.getLinkState(self.robot, self.right_foot)[0] - self.r_foot_target
+        dist_r = np.linalg.norm(r_vec_target)
+        t_vec_target = p.getBasePositionAndOrientation(self.robot, physicsClientId=self.client_ID)[0] - self.torso_target
+        # ignore z coordinate, should be good when xy are correct and joints are set
+        dist_t = np.linalg.norm(t_vec_target[:2])
+
+        return dist_t + (dist_l + dist_r)*0.5
+
+    def r_tumble(self):
+
+        punishment = -100
+        
+        left_foot = p.getLinkState(self.robot,self.left_foot)[0][2]
+        right_foot = p.getLinkState(self.robot,self.right_foot)[0][2]
+        stomach = p.getLinkState(self.robot,self.pelvis)[0][2]
+        left_shoulder = p.getLinkState(self.robot,self.left_shoulder)[0][2]
+        right_shoulder = p.getLinkState(self.robot,self.right_shoulder)[0][2]
+        foot = max(left_foot, right_foot)
+        shoulder = min(left_shoulder, right_shoulder)
+
+        if (foot >= stomach or foot >= shoulder or stomach >= shoulder) or (shoulder < 0.5 and stomach < 0.5):
+            return punishment
+        return 0
+    
+    def r_standing(self):
+        max_limit = 1.4 # approx height of shoulder when standing straight
+        min_limit = 0.7 # approx height of shoulder when sitting straight
+        punishment = -100
+        left_shoulder = p.getLinkState(self.robot,self.left_shoulder)[0][2]
+        right_shoulder = p.getLinkState(self.robot,self.right_shoulder)[0][2]
+        
+        if (left_shoulder < max_limit or right_shoulder < max_limit):
+            reward = min(left_shoulder, right_shoulder) - min_limit
+        else:
+            reward = max_limit - min_limit
+            
+        # if shoulder is too low, punish
+        if (min(left_shoulder, right_shoulder) < min_limit):
+            reward = punishment
+        return reward
+
+
+if __name__ == "__main__":
+    model = HumanoidBulletEnv(True)
+    p.setRealTimeSimulation(1)
+
+    while(1):
+        a = 1
+        keys = p.getKeyboardEvents()
+        for k in keys:
+            if (keys[k] & p.KEY_WAS_TRIGGERED):
+                if (k == ord('i')):
+                    model.reset()
+          
+                
+                
