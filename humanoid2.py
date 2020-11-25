@@ -170,11 +170,11 @@ class HumanoidBulletEnv(gym.Env):
         """
         # Add various rewards here to your liking. For example, np.square(yaw) * 0.5 will penalise the robot facing directions other than the x direction
         # You can use other similar heuristics to 'guide' the agent into doing what you actually want it to do.
-        r = r_links_outside()
+        r = self.r_links_outside()
         if r > -0.5:
-            r = 2*r + 7*r_standing() + 10*r_close_to_target() + r_tumble()
+            r = 2*r + 7*self.r_standing() + 10*self.r_close_to_target() + self.r_tumble()
         else:
-            r = 7*r + r_tumble() + 5*r_close_to_target()
+            r = 7*r + self.r_tumble() + 5*self.r_close_to_target()
         """reward
         """
 
