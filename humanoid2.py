@@ -234,13 +234,13 @@ class HumanoidBulletEnv(gym.Env):
         '''
         return np.array(action) #(np.array(action) * 0.5 + 0.5) * self.joints_rads_diff + self.joints_rads_low
 
-    def r_joints_outside(self):
+    def r_links_outside(self):
         car_half_wide = (1.22+0.15)/2.0
         reward = 0
         s = p.getLinkStates(self.robot, range(0, 13+1), physicsClientId=self.client_ID)
         for link in s:
-            dist = abs(link[4][1]-car_half_wide)
-            reward -= dist
+            dist = link[4][1] - car_half_wide
+            reward -= max(dist, 0)
         return reward
     
     def r_close_to_target(self):
