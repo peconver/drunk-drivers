@@ -71,7 +71,7 @@ class HumanoidBulletEnv(gym.Env):
         #same as action but + min and max distance of feet
         self.observation_space = spaces.Box(low=-10, high=10, shape=(self.obs_dim, ))
 
-        self.max_joint_force = 100
+        self.max_joint_force = 22
         self.sim_steps_per_iter = 24  # The amount of simulation steps done every iteration.
         self.lateral_friction = 1.0
         self.torso_target = np.array([0, (1.22+0.15)/2.0 + 0.5, 0])
