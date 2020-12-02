@@ -59,7 +59,7 @@ class HumanoidBulletEnv(gym.Env):
 
 
         # Input and output dimensions defined in the environment
-        self.obs_dim = 120  # joints + torques + if standing on floor
+        self.obs_dim = 91  # joints + torques + contacts
         self.act_dim = 29
 
         # Limits of our joints. When using the * (multiply) operation on a list, it repeats the list that many times
