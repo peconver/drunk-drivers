@@ -149,7 +149,7 @@ class HumanoidBulletEnv(gym.Env):
         '''
 
         # YOU CAN REMOVE THIS CLIP IF YOU WANT
-        ctrl_clipped = np.clip(ctrl_noisy, -1, 1)
+        ctrl_clipped = np.clip(ctrl,-1, 1)
 
         # Scale the action to correct range and publish to simulator (this just publishes the action, doesn't step the simulation yet)
         scaled_action = self.norm_to_rads(ctrl_clipped)
@@ -207,9 +207,11 @@ class HumanoidBulletEnv(gym.Env):
         scaled_joint_angles = self.rads_to_norm(joint_angles)
         env_obs = np.concatenate((scaled_joint_angles, torso_quat, contacts)).astype(np.float32)
 
-        # This condition terminates the episode
+        # This condition terminates the episode - WARNING - it can cause that the robot will try 
+        # terminate the episode as quickly as possible
         done = self.step_ctr > self.max_steps or (np.abs(roll) < 0.1 and np.abs(pitch) < 0.1)
 
+        # TODO: why random element?
         env_obs_noisy = env_obs + np.random.rand(self.obs_dim).astype(np.float32) * 0.1 - 0.05
 
         return env_obs_noisy, r, done, {}
@@ -233,7 +235,7 @@ class HumanoidBulletEnv(gym.Env):
         p.resetJointState(self.robot, 1, -.5)
 
         # Step a few times so stuff settles down
-        for i in range(20):
+        for i in range(100):
             p.stepSimulation(physicsClientId=self.client_ID)
 
         self.step_ctr = 0
