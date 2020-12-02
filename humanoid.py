@@ -72,7 +72,7 @@ class HumanoidBulletEnv(gym.Env):
         self.observation_space = spaces.Box(low=-10, high=10, shape=(self.obs_dim, ))
 
         self.max_joint_force = 22
-        self.sim_steps_per_iter = 24  # The amount of simulation steps done every iteration.
+        self.sim_steps_per_iter = 24  # The amount of simulation steps done every iteration. #DELETE - toto je pro zpomaleni simulace
         self.lateral_friction = 1.0
         self.torso_target = np.array([0, (1.22+0.15)/2.0 + 0.5, 0])
         self.l_foot_target = np.array([0, (1.22+0.15)/2.0 + 0.6, 0])
@@ -147,8 +147,6 @@ class HumanoidBulletEnv(gym.Env):
         :param ctrl: list or array of target joint angles normalized to [-1,1]
         :return: next_obs, r, done, _  . The last '_' value is left as compatability with gym envs.
         '''
-    
-        ctrl_noisy = ctrl + np.random.rand(self.act_dim).astype(np.float32) * 0.1 - 0.05
 
         # YOU CAN REMOVE THIS CLIP IF YOU WANT
         ctrl_clipped = np.clip(ctrl_noisy, -1, 1)
@@ -165,10 +163,9 @@ class HumanoidBulletEnv(gym.Env):
                                     physicsClientId=self.client_ID)
 
         # Step the simulation.
-        for i in range(self.sim_steps_per_iter):
-            p.stepSimulation(physicsClientId=self.client_ID)
-            if self.animate:
-                time.sleep(0.004)
+        p.stepSimulation(physicsClientId=self.client_ID)
+        if self.animate:
+             time.sleep(0.004)
 
         # Get new observations (Note, not all of these are required and used)
         torso_pos, torso_quat, torso_vel, torso_angular_vel, joint_angles, joint_velocities, joint_torques, contacts = self.get_obs()
