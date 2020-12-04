@@ -225,7 +225,7 @@ class HumanoidBulletEnv(gym.Env):
                                     jointIndices=range(self.act_dim),
                                     controlMode=p.POSITION_CONTROL,
                                     targetPositions=[0] * self.act_dim,
-                                    forces=[self.max_joint_force] * self.act_dim,
+                                    forces=[0] * self.act_dim,
                                     physicsClientId=self.client_ID)
 
         p.resetJointState(self.robot, 9, -1.57)
