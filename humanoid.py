@@ -25,6 +25,7 @@ class HumanoidBulletEnv(gym.Env):
         p.setGravity(0, 0, -9.8, physicsClientId=self.client_ID)
         p.setRealTimeSimulation(0, physicsClientId=self.client_ID)
         p.setAdditionalSearchPath(pybullet_data.getDataPath(), physicsClientId=self.client_ID)
+        p.setTimeStep(1/190, self.client_ID)
 
         # Load actual robot and car into the world
         shift_x = .8
@@ -71,12 +72,11 @@ class HumanoidBulletEnv(gym.Env):
         #same as action but + min and max distance of feet
         self.observation_space = spaces.Box(low=-10, high=10, shape=(self.obs_dim, ))
 
-        self.max_joint_force = 22
-        self.sim_steps_per_iter = 24  # The amount of simulation steps done every iteration. #DELETE - toto je pro zpomaleni simulace
+        self.max_joint_force = 45
         self.lateral_friction = 1.0
-        self.torso_target = np.array([0, (1.22+0.15)/2.0 + 0.5, 0])
-        self.l_foot_target = np.array([0, (1.22+0.15)/2.0 + 0.6, 0])
-        self.r_foot_target = np.array([0, (1.22+0.15)/2.0 + 0.4, 0])
+        self.torso_target = np.array([0.23, 0.1, 1.2])
+        self.l_foot_target = np.array([0.13, 0.25, 0.5])
+        self.r_foot_target = np.array([0.33, 0.25, 0.5])
 
         # indexes for joints, that aren't fixed
         self.joints_index = np.array([0, 1, 3, 5, 6, 7, 9, 12, 13, 14, 16, 19, 20, 22, 24, 25, 27])
@@ -189,17 +189,33 @@ class HumanoidBulletEnv(gym.Env):
         angle1 = math.acos(skalarni_soucin1/math.sqrt(vec1[0]*vec1[0]+vec1[1]*vec1[1]+vec1[2]*vec1[2]))
         skalarni_soucin2 = vec2[0] * vec_vychozi[0] + vec2[1] * vec_vychozi[1] + vec2[2] * vec_vychozi[2]
         angle2 = math.acos(skalarni_soucin2 / math.sqrt(vec2[0] * vec2[0] + vec2[1] * vec2[1] + vec2[2] * vec2[2]))
-
-        r_angle = (10 - abs(angle1*(10/pi))) + (10 - abs(angle2*(10/pi)))
         
-        #r = self.r_links_outside()
-        #if r > -0.5:
-        #    r = 2*r + 7*self.r_standing() + 10*self.r_close_to_target() + self.r_tumble()
-        #else:
-        #    r = 7*r + self.r_tumble() + 5*self.r_close_to_target()
+        # pelvis and thighs, bad[0;1/3;2/3;1]good
+        # xy dist of torso from orig position
+        moved = np.linalg.norm(np.array((torso_pos[0] + 0.15, torso_pos[1] - 0.014)))
+        # if dist < limit -> moved=0, else -> moved > 0, good<0;xxx>bad
+        moved = max(moved - .25, 0)
+        # clip to <0;1>
+        moved = min(moved, 1)
+        # 2<0;pi> -> good<0;1>bad
+        legs_rot = ((angle1) + (angle2)) / (pi)
+        # <-pi;pi> -> <-3pi/2;pi/2> -> <0;3pi/2> -> good<0;1>bad
+        torso_good_rot = abs(yaw - pi / 2)*2 / (3*pi)
+        # 2<-pi;pi> -> 2<0;pi> -> good<0;1>bad
+        torso_bad_rot = (abs(pitch) + abs(roll)) / (2 * pi)
+        # roll + yaw can be up to pi/6
+        torso_bad_rot = max(torso_bad_rot - 1 / 3, 0)
         
-        r = -abs(roll)*10 # turn torso to door of car
-        r += r_angle
+        # dist between his ass and the chair
+        sitting = p.getLinkState(self.robot, 4)[0][2] - 1.101
+        sitting = max(sitting - 0.01, 0)
+        sitting = 1 - sitting*5
+        sitting = max(-1, sitting)
+        
+        # rotation between legs and torso
+        abdomen_rot = 2 * (1 - (abs(joint_angles[0]) / 0.7853981852531433) - 0.5)
+        
+        r = (2*(1-legs_rot) + (-(torso_good_rot - .5)*2) + 2*(1-(sitting-.5)*2) + abdomen_rot + self.r_close_to_target())/7
         """reward
         """
 
@@ -209,12 +225,9 @@ class HumanoidBulletEnv(gym.Env):
 
         # This condition terminates the episode - WARNING - it can cause that the robot will try 
         # terminate the episode as quickly as possible
-        done = self.step_ctr > self.max_steps or (np.abs(roll) < 0.1 and np.abs(pitch) < 0.1)
+        done = self.step_ctr > self.max_steps or abs(r-1) < 0.1 or torso_z < 1
 
-        # TODO: why random element?
-        env_obs_noisy = env_obs + np.random.rand(self.obs_dim).astype(np.float32) * 0.1 - 0.05
-
-        return env_obs_noisy, r, done, {}
+        return env_obs, r, done, {}
 
     def reset(self):
         # Reset the robot to initial position and orientation and null the motors
@@ -277,7 +290,14 @@ class HumanoidBulletEnv(gym.Env):
         # ignore z coordinate, should be good when xy are correct and joints are set
         dist_t = np.linalg.norm(t_vec_target[:2])
 
-        return dist_t + (dist_l + dist_r)*0.5
+        # right scale from -1 to 1
+        if self.step_ctr == 1:
+            self.max_dist = dist_l+dist_r+dist_t
+        r = 1-(dist_l+dist_r+dist_t)/self.max_dist
+        r = max(r, -1)
+        r = min(r, 1)
+        
+        return r
 
     def r_tumble(self):
 
