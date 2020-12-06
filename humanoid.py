@@ -25,6 +25,7 @@ class HumanoidBulletEnv(gym.Env):
         p.setGravity(0, 0, -9.8, physicsClientId=self.client_ID)
         p.setRealTimeSimulation(0, physicsClientId=self.client_ID)
         p.setAdditionalSearchPath(pybullet_data.getDataPath(), physicsClientId=self.client_ID)
+        p.setTimeStep(1/190, self.client_ID)
 
         # Load actual robot and car into the world
         shift_x = .8
@@ -72,7 +73,6 @@ class HumanoidBulletEnv(gym.Env):
         self.observation_space = spaces.Box(low=-10, high=10, shape=(self.obs_dim, ))
 
         self.max_joint_force = 22
-        self.sim_steps_per_iter = 24  # The amount of simulation steps done every iteration. #DELETE - toto je pro zpomaleni simulace
         self.lateral_friction = 1.0
         self.torso_target = np.array([0, (1.22+0.15)/2.0 + 0.5, 0])
         self.l_foot_target = np.array([0, (1.22+0.15)/2.0 + 0.6, 0])
@@ -198,8 +198,33 @@ class HumanoidBulletEnv(gym.Env):
         #else:
         #    r = 7*r + self.r_tumble() + 5*self.r_close_to_target()
         
-        r = -abs(roll)*10 # turn torso to door of car
-        r += r_angle
+        # r = -abs(roll)*10 # turn torso to door of car
+        # r += r_angle
+
+        # pelvis and thighs, bad[0;1/3;2/3;1]good
+        sitting = (contacts[4] + contacts[8] + contacts[15]) / 3
+        # xy dist of torso from orig position
+        moved = np.linalg.norm(np.array((torso_pos[0] + 0.15, torso_pos[1] - 0.014)))
+        # moved = norm((torso_pos[:2] - (-0.1446, 0.0153)))
+        # if dist < limit -> moved=0, else -> moved > 0, good<0;xxx>bad
+        moved = max(moved - .25, 0)
+        # clip to <0;1>
+        moved = min(moved, 1)
+        # 2<0;pi> -> good<0;1>bad
+        legs_rot = ((angle1) + (angle2)) / (pi)
+        # <-pi;pi> -> <-3pi/2;pi/2> -> <0;3pi/2> -> good<0;1>bad
+        torso_good_rot = abs(yaw - pi / 2)*2 / (3*pi)
+        # 2<-pi;pi> -> 2<0;pi> -> good<0;1>bad
+        torso_bad_rot = (abs(pitch) + abs(roll)) / (2 * pi)
+        # roll + yaw can be up to pi/6
+        torso_bad_rot = max(torso_bad_rot - 1 / 3, 0)
+        sitting = p.getLinkState(self.robot, 4)[0][2] - 1.101
+        sitting = max(sitting - 0.01, 0)
+        sitting = 1 - sitting*5
+        sitting = max(-1, sitting)
+
+        r = ((1-legs_rot) + (-(torso_good_rot - .5)*2) + (1-(sitting-.5)*2))/3
+        #print(r)
         """reward
         """
 
@@ -209,10 +234,10 @@ class HumanoidBulletEnv(gym.Env):
 
         # This condition terminates the episode - WARNING - it can cause that the robot will try 
         # terminate the episode as quickly as possible
-        done = self.step_ctr > self.max_steps or (np.abs(roll) < 0.1 and np.abs(pitch) < 0.1)
+        done = self.step_ctr > self.max_steps or abs(r-1) < 0.1
 
         # TODO: why random element?
-        env_obs_noisy = env_obs + np.random.rand(self.obs_dim).astype(np.float32) * 0.1 - 0.05
+        env_obs_noisy = env_obs# + np.random.rand(self.obs_dim).astype(np.float32) * 0.1 - 0.05
 
         return env_obs_noisy, r, done, {}
 
@@ -318,6 +343,23 @@ if __name__ == "__main__":
     p.setRealTimeSimulation(1)
 
     while(1):
+        l = p.getLinkStates(model.robot, [5, 9])
+        l2 = p.getLinkStates(model.robot, [12, 16])
+
+        vec1 = (l[1][4][0] - l[0][4][0], l[1][4][1] - l[0][4][1], l[1][4][2] - l[0][4][2])
+        vec2 = (l2[1][4][0] - l2[0][4][0], l2[1][4][1] - l2[0][4][1], l2[1][4][2] - l2[0][4][2])
+
+        vec_vychozi = [0, 1, 0]
+
+        skalarni_soucin1 = vec1[0] * vec_vychozi[0] + vec1[1] * vec_vychozi[1] + vec1[2] * vec_vychozi[2]
+        angle1 = math.acos(skalarni_soucin1 / math.sqrt(vec1[0] * vec1[0] + vec1[1] * vec1[1] + vec1[2] * vec1[2]))
+        skalarni_soucin2 = vec2[0] * vec_vychozi[0] + vec2[1] * vec_vychozi[1] + vec2[2] * vec_vychozi[2]
+        angle2 = math.acos(skalarni_soucin2 / math.sqrt(vec2[0] * vec2[0] + vec2[1] * vec2[1] + vec2[2] * vec2[2]))
+
+        legs_rot = ((angle1) + (angle2)) / (pi)
+        r = 1 - legs_rot
+        print(r)
+
         a = 1
         keys = p.getKeyboardEvents()
         for k in keys:
