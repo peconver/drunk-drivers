@@ -60,13 +60,17 @@ class HumanoidBulletEnv(gym.Env):
 
 
         # Input and output dimensions defined in the environment
-        self.obs_dim = 91  # joints + torques + contacts
+        self.obs_dim = 98  # joints + torques + contacts
         self.act_dim = 29
 
         # Limits of our joints. When using the * (multiply) operation on a list, it repeats the list that many times
         self.joints_deg_low = np.array([-45, -75, -35, -25, -60, -120, -160, -25, -60, -120, -160, -85, -85, -90, -60, -60, -90])
         self.joints_deg_high = np.array([45,  30,  35,   5,  35,   20,   -2,   5,  35,   20,   -2,  60,  60,  50,  85,  85,  50])
         self.joints_deg_diff = self.joints_deg_high - self.joints_deg_low
+        
+        self.joints_rad_low = np.deg2rad(self.joints_deg_low)
+        self.joints_rad_high = np.deg2rad(self.joints_deg_high)
+        self.joints_rad_diff = np.deg2rad(self.joints_deg_diff)
 
         self.action_space = spaces.Box(low=-1, high=1, shape=(self.act_dim, ))
         #same as action but + min and max distance of feet
@@ -230,6 +234,11 @@ class HumanoidBulletEnv(gym.Env):
 
         # get joint_angles into np array and make observation
         scaled_joint_angles = self.rads_to_norm(joint_angles)
+        joint_angles_n = ((joint_angles - self.joints_rad_low) / self.joints_rad_diff) * 2 - 1
+        yaw = ((yaw + pi) / (2*pi))*2 -1
+        roll = ((roll + pi) / (2*pi))*2 -1
+        pitch = ((pitch + pi) / (2*pi))*2 -1
+        env_obs = np.concatenate((torso_pos, [roll,pitch,yaw], joint_angles_n, joint_velocities, contacts)).astype(np.float32)
         env_obs = np.concatenate((scaled_joint_angles, torso_quat, contacts)).astype(np.float32)
 
         # This condition terminates the episode - WARNING - it can cause that the robot will try 
@@ -282,7 +291,7 @@ class HumanoidBulletEnv(gym.Env):
         :param action: list or array of normalized joint target angles (from your control policy)
         :return: array of target joint angles in radians (to be published to simulator)
         '''
-        return np.array(action) #(np.array(action) * 0.5 + 0.5) * self.joints_rads_diff + self.joints_rads_low
+        return (np.array(action) * 0.5 + 0.5) * self.joints_rad_diff + self.joints_rad_low
 
     def r_links_outside(self):
         car_half_wide = (1.22+0.15)/2.0
