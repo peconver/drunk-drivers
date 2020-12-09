@@ -77,7 +77,7 @@ class HumanoidBulletEnv(gym.Env):
         self.observation_space = spaces.Box(low=-10, high=10, shape=(self.obs_dim, ))
 
         self.max_joint_force = 45
-        self.lateral_friction = 1.0
+        self.lateral_friction = 2.0
         self.torso_target = np.array([-0.05, -0.01, 1.38])
         self.l_foot_target = np.array([-0.17, 0.55, 0.6])
         self.r_foot_target = np.array([-0.22, 0.55, 0.6])
@@ -85,9 +85,9 @@ class HumanoidBulletEnv(gym.Env):
         # indexes for joints, that aren't fixed
         self.joints_index = np.array([0, 1, 3, 5, 6, 7, 9, 12, 13, 14, 16, 19, 20, 22, 24, 25, 27])
 
-        for i in range(4):
-            type(self.lateral_friction), type(3 * i + 2), type(self.robot)
-            p.changeDynamics(self.robot, 3 * i + 2, lateralFriction=self.lateral_friction)
+        for i in range(29):
+            type(self.lateral_friction), type(i), type(self.robot)
+            p.changeDynamics(self.robot, i, lateralFriction=self.lateral_friction)
         p.changeDynamics(self.robot, -1, lateralFriction=self.lateral_friction)
         
         # set camera
@@ -230,8 +230,8 @@ class HumanoidBulletEnv(gym.Env):
 
         abdomen_rot = 2 * (1 - (abs(joint_angles[0]) / 0.7853981852531433) - 0.5)
 
-        #r = (3*(1-legs_rot) + (-(torso_good_rot - .5)*2) + 2*(1-(sitting-.5)*2) + abdomen_rot + 2*self.r_close_to_target())/9
-        r = (2*(1-legs_rot) + self.r_close_to_target() + sitting)/4
+        r = (3*(1-legs_rot) + (-(torso_good_rot - .5)*2) + 2*(1-(sitting-.5)*2) + abdomen_rot + 2*self.r_close_to_target())/9
+        #r = (self.r_close_to_target())
         """reward
         """
 
@@ -245,7 +245,7 @@ class HumanoidBulletEnv(gym.Env):
 
         # This condition terminates the episode - WARNING - it can cause that the robot will try 
         # terminate the episode as quickly as possible
-        done = self.step_ctr > self.max_steps or abs(r-1) < 0.1 or torso_z < 1
+        done = self.step_ctr > self.max_steps  or abs(r-1) < 0.1 or torso_z < 1
 
         # TODO: why random element?
         env_obs_noisy = env_obs# + np.random.rand(self.obs_dim).astype(np.float32) * 0.1 - 0.05
@@ -254,21 +254,21 @@ class HumanoidBulletEnv(gym.Env):
 
     def reset(self):
         # Reset the robot to initial position and orientation and null the motors
-        joint_init_pos_list = self.norm_to_rads([0] * self.act_dim)
-        [p.resetJointState(self.robot, i, joint_init_pos_list[i], 0, physicsClientId=self.client_ID) for i in range(self.act_dim)]
-        p.resetBasePositionAndOrientation(self.robot, [0, 0, 1.5], [0, 0, 0, 1], physicsClientId=self.client_ID)
+        joint_init_pos_list = [0] * 29
+        joint_init_pos_list[9] = -1.4
+        joint_init_pos_list[16] = -1.4
+        joint_init_pos_list[7] = -1
+        joint_init_pos_list[14] = -1
+        joint_init_pos_list[1] = -.5
+        [p.resetJointState(self.robot, i, joint_init_pos_list[i], 0, physicsClientId=self.client_ID) for i in range(29)]
+        p.resetBasePositionAndOrientation(self.robot, [-0.1, 0, 1.48], [0, 0, 0, 1], physicsClientId=self.client_ID)
+        p.resetBaseVelocity(self.robot, [0, 0, 0], [0, 0, 0])
         p.setJointMotorControlArray(bodyUniqueId=self.robot,
                                     jointIndices=range(self.act_dim),
                                     controlMode=p.POSITION_CONTROL,
                                     targetPositions=[0] * self.act_dim,
                                     forces=[0] * self.act_dim,
                                     physicsClientId=self.client_ID)
-
-        p.resetJointState(self.robot, 9, -1.57)
-        p.resetJointState(self.robot, 16, -1.57)
-        p.resetJointState(self.robot, 7, -.78)
-        p.resetJointState(self.robot, 14, -.78)
-        p.resetJointState(self.robot, 1, -.5)
 
         # Step a few times so stuff settles down
         for i in range(100):
@@ -360,6 +360,25 @@ if __name__ == "__main__":
     p.setRealTimeSimulation(1)
     #model.step_ctr = 1
     while(1):
+        #print(model.r_close_to_target())
+        #model.step_ctr = 2
+
+        l = p.getLinkStates(model.robot, [5, 9])
+        l2 = p.getLinkStates(model.robot, [12, 16])
+        torso_z = (p.getLinkStates(model.robot, [0]))[0][4][2]
+
+        vec1 = (l[1][4][0] - l[0][4][0], l[1][4][1] - l[0][4][1], l[1][4][2] - l[0][4][2])
+        vec2 = (l2[1][4][0] - l2[0][4][0], l2[1][4][1] - l2[0][4][1], l2[1][4][2] - l2[0][4][2])
+
+        vec_vychozi = [0, 1, 0]
+
+        skalarni_soucin1 = vec1[0] * vec_vychozi[0] + vec1[1] * vec_vychozi[1] + vec1[2] * vec_vychozi[2]
+        angle1 = math.acos(skalarni_soucin1 / math.sqrt(vec1[0] * vec1[0] + vec1[1] * vec1[1] + vec1[2] * vec1[2]))
+        skalarni_soucin2 = vec2[0] * vec_vychozi[0] + vec2[1] * vec_vychozi[1] + vec2[2] * vec_vychozi[2]
+        angle2 = math.acos(skalarni_soucin2 / math.sqrt(vec2[0] * vec2[0] + vec2[1] * vec2[1] + vec2[2] * vec2[2]))
+
+        legs_rot = ((angle1) + (angle2)) / (pi)
+        print(1-legs_rot)
 
         a = 1
         keys = p.getKeyboardEvents()
