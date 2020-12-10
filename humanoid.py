@@ -76,7 +76,7 @@ class HumanoidBulletEnv(gym.Env):
         #same as action but + min and max distance of feet
         self.observation_space = spaces.Box(low=-10, high=10, shape=(self.obs_dim, ))
 
-        self.max_joint_force = 45
+        self.max_joint_force = 200
         self.lateral_friction = 2.0
         self.torso_target = np.array([-0.05, -0.01, 1.38])
         self.l_foot_target = np.array([-0.17, 0.55, 0.6])
@@ -84,6 +84,7 @@ class HumanoidBulletEnv(gym.Env):
 
         # indexes for joints, that aren't fixed
         self.joints_index = np.array([0, 1, 3, 5, 6, 7, 9, 12, 13, 14, 16, 19, 20, 22, 24, 25, 27])
+        self.max_forces = np.array([70, 70, 70, 100, 100, 120, 120, 100, 100, 120, 120, 25, 25, 25, 25, 25, 25])
 
         for i in range(29):
             type(self.lateral_friction), type(i), type(self.robot)
@@ -161,7 +162,7 @@ class HumanoidBulletEnv(gym.Env):
                                     jointIndices=self.joints_index,
                                     controlMode=p.POSITION_CONTROL,
                                     targetPositions=scaled_action,
-                                    forces=[self.max_joint_force] * self.act_dim ,
+                                    forces=self.max_forces,
                                     positionGains=[0.02] * self.act_dim ,
                                     velocityGains=[0.1] * self.act_dim ,
                                     physicsClientId=self.client_ID)
@@ -358,29 +359,8 @@ class HumanoidBulletEnv(gym.Env):
 if __name__ == "__main__":
     model = HumanoidBulletEnv(True)
     p.setRealTimeSimulation(1)
-    #model.step_ctr = 1
+    
     while(1):
-        #print(model.r_close_to_target())
-        #model.step_ctr = 2
-
-        l = p.getLinkStates(model.robot, [5, 9])
-        l2 = p.getLinkStates(model.robot, [12, 16])
-        torso_z = (p.getLinkStates(model.robot, [0]))[0][4][2]
-
-        vec1 = (l[1][4][0] - l[0][4][0], l[1][4][1] - l[0][4][1], l[1][4][2] - l[0][4][2])
-        vec2 = (l2[1][4][0] - l2[0][4][0], l2[1][4][1] - l2[0][4][1], l2[1][4][2] - l2[0][4][2])
-
-        vec_vychozi = [0, 1, 0]
-
-        skalarni_soucin1 = vec1[0] * vec_vychozi[0] + vec1[1] * vec_vychozi[1] + vec1[2] * vec_vychozi[2]
-        angle1 = math.acos(skalarni_soucin1 / math.sqrt(vec1[0] * vec1[0] + vec1[1] * vec1[1] + vec1[2] * vec1[2]))
-        skalarni_soucin2 = vec2[0] * vec_vychozi[0] + vec2[1] * vec_vychozi[1] + vec2[2] * vec_vychozi[2]
-        angle2 = math.acos(skalarni_soucin2 / math.sqrt(vec2[0] * vec2[0] + vec2[1] * vec2[1] + vec2[2] * vec2[2]))
-
-        legs_rot = ((angle1) + (angle2)) / (pi)
-        print(1-legs_rot)
-
-        a = 1
         keys = p.getKeyboardEvents()
         for k in keys:
             if (keys[k] & p.KEY_WAS_TRIGGERED):
