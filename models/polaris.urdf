@@ -233,13 +233,13 @@
 </geometry>
 </visual>
 <collision>
-<origin rpy="0 0 0" xyz="1.05 0 0.7"/>
+<origin rpy="0 0 0" xyz="1.1 0 0.7"/>
 <geometry>
 <box size="0.58 1.0 0.8"/>
 </geometry>
 </collision>
 <visual>
-<origin rpy="0 0 0" xyz="1.05 0 0.7"/>
+<origin rpy="0 0 0" xyz="1.1 0 0.7"/>
 <geometry>
 <box size="0.58 1.0 0.8"/>
 </geometry>
@@ -338,30 +338,6 @@
 <origin rpy="0 -0.44 0" xyz="0.54 -0.61 1.45"/>
 <geometry>
 <cylinder length="1.04" radius="0.03"/>
-</geometry>
-</visual>
-<collision>
-<origin rpy="0 0.35 0" xyz="0.64 -0.61 0.7"/>
-<geometry>
-<cylinder length="0.72" radius="0.03"/>
-</geometry>
-</collision>
-<visual>
-<origin rpy="0 0.35 0" xyz="0.64 -0.61 0.7"/>
-<geometry>
-<cylinder length="0.72" radius="0.03"/>
-</geometry>
-</visual>
-<collision>
-<origin rpy="0 0.35 0" xyz="0.64 0.61 0.7"/>
-<geometry>
-<cylinder length="0.72" radius="0.03"/>
-</geometry>
-</collision>
-<visual>
-<origin rpy="0 0.35 0" xyz="0.64 0.61 0.7"/>
-<geometry>
-<cylinder length="0.72" radius="0.03"/>
 </geometry>
 </visual>
 <collision>
@@ -528,13 +504,13 @@
 <inertia ixx="0.5" ixy="0.0" ixz="0.0" iyy="0.5" iyz="0.0" izz="1.0"/>
 </inertial>
 <collision>
-<origin rpy="0 0 0" xyz="0 0 0"/>
+<origin rpy="0 0 0" xyz="0.2 0 0"/>
 <geometry>
 <cylinder length="0.23" radius="0.32"/>
 </geometry>
 </collision>
 <visual>
-<origin rpy="0 0 0" xyz="0 0 0"/>
+<origin rpy="0 0 0" xyz="0.2 0 0"/>
 <geometry>
 <cylinder length="0.23" radius="0.32"/>
 </geometry>
@@ -571,13 +547,13 @@ name="polaris_ranger_ev__front_right_wheel_steering_block_collision">
 <inertia ixx="0.5" ixy="0.0" ixz="0.0" iyy="0.5" iyz="0.0" izz="1.0"/>
 </inertial>
 <collision>
-<origin rpy="0 0 0" xyz="0 0 0"/>
+<origin rpy="0 0 0" xyz="0.2 0 0"/>
 <geometry>
 <cylinder length="0.23" radius="0.32"/>
 </geometry>
 </collision>
 <visual>
-<origin rpy="0 0 0" xyz="0 0 0"/>
+<origin rpy="0 0 0" xyz="0.2 0 0"/>
 <geometry>
 <cylinder length="0.23" radius="0.32"/>
 </geometry>
@@ -653,3 +629,4 @@ hz="10" samples="220" gpu="false">
 </plugin>
 </gazebo-->
 </robot>
+
