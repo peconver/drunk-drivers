@@ -34,7 +34,7 @@ class HumanoidBulletEnv(gym.Env):
         shift_y = -.35
         self.car = p.loadURDF("models/polaris.urdf", [-shift_x, shift_y, (shift_z + 0.32)], useFixedBase=True, physicsClientId=self.client_ID, globalScaling=.97)
         self.plane = p.loadURDF("plane.urdf", [-shift_x, 0, shift_z], physicsClientId=self.client_ID)  # Floor
-        self.robot = p.loadMJCF("models/humanoid_symmetric.xml", physicsClientId=self.client_ID)  # humanoid
+        self.robot = p.loadMJCF("models/humanoid_symmetric_no_ground.xml", physicsClientId=self.client_ID)  # humanoid
         self.robot = self.robot[0]
 
         #p.changeDynamics(self.robot, 9, jointLowerLimit=-2.792526960372925, jointUpperLimit=-1)
