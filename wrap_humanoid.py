@@ -11,7 +11,7 @@ from humanoid import HumanoidBulletEnv
 from typing import Callable
 import numpy as np
 
-N_PROCESS = 17
+N_PROCESS = 10
 
 class myCallback(BaseCallback):
     def __init__(self,  log_dir: str, check_freq=100):
@@ -58,7 +58,7 @@ if __name__ == "__main__":
 
     config = {"n_envs": N_PROCESS, "policy_name":'MlpPolicy',"gamma":.99, "n_steps":16,"vf_coef":.4,"ent_coef":.0,"max_grad_norm": .5, 
             "learning_rate":.001,"epsilon":1e-5, "gae_lambda":.9,"use_rms_prop": True, "normalize_advantage": False, "use_sde": True,
-            "policy_hid_dim":256 ,"verbose":learn_verbose,"session_ID":'torCloseOutsidev2'}
+            "policy_hid_dim":256 ,"verbose":learn_verbose,"session_ID":'rotate'}
             
 
     train = True
