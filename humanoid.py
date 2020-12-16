@@ -1,3 +1,4 @@
+from operator import neg
 import os
 import numpy as np
 from numpy.lib.function_base import angle
@@ -25,16 +26,20 @@ class HumanoidBulletEnv(gym.Env):
         p.setGravity(0, 0, -9.8, physicsClientId=self.client_ID)
         p.setRealTimeSimulation(0, physicsClientId=self.client_ID)
         p.setAdditionalSearchPath(pybullet_data.getDataPath(), physicsClientId=self.client_ID)
-        p.setTimeStep(1/190, self.client_ID)
+        p.setTimeStep(1/120, self.client_ID)
 
         # Load actual robot and car into the world
         shift_x = .8
         shift_z = .17
-        shift_y = -.25
+        shift_y = -.35
         self.car = p.loadURDF("models/polaris.urdf", [-shift_x, shift_y, (shift_z + 0.32)], useFixedBase=True, physicsClientId=self.client_ID, globalScaling=.97)
         self.plane = p.loadURDF("plane.urdf", [-shift_x, 0, shift_z], physicsClientId=self.client_ID)  # Floor
         self.robot = p.loadMJCF("models/humanoid_symmetric_no_ground.xml", physicsClientId=self.client_ID)  # humanoid
         self.robot = self.robot[0]
+
+        #p.changeDynamics(self.robot, 9, jointLowerLimit=-2.792526960372925, jointUpperLimit=-1)
+        #p.changeDynamics(self.robot, 16, jointLowerLimit=-2.792526960372925, jointUpperLimit=-1)
+        
         
         # set joints, it is not neccessary because it is handled in reset()
         p.resetJointState(self.robot, 9, -1.57)
@@ -42,6 +47,7 @@ class HumanoidBulletEnv(gym.Env):
         p.resetJointState(self.robot, 7, -.78)
         p.resetJointState(self.robot, 14, -.78)
         p.resetJointState(self.robot, 1, -.5)
+        #print(p.getJointInfo(self.robot, 9)[8:10])
 
         # get id to often used links
         for j in range(p.getNumJoints(self.robot)):
@@ -65,7 +71,7 @@ class HumanoidBulletEnv(gym.Env):
 
         # Limits of our joints. When using the * (multiply) operation on a list, it repeats the list that many times
         self.joints_deg_low = np.array([-45, -75, -35, -25, -60, -120, -160, -25, -60, -120, -160, -85, -85, -90, -60, -60, -90])
-        self.joints_deg_high = np.array([45,  30,  35,   5,  35,   20,   -2,   5,  35,   20,   -2,  60,  60,  50,  85,  85,  50])
+        self.joints_deg_high = np.array([45,  30,  35,   5,  35,   20,  -57,   5,  35,   20,  -57,  60,  60,  50,  85,  85,  50])
         self.joints_deg_diff = self.joints_deg_high - self.joints_deg_low
 
         self.joints_rad_low = np.deg2rad(self.joints_deg_low)
@@ -76,7 +82,7 @@ class HumanoidBulletEnv(gym.Env):
         #same as action but + min and max distance of feet
         self.observation_space = spaces.Box(low=-10, high=10, shape=(self.obs_dim, ))
 
-        self.max_joint_force = 200
+        self.max_joint_force = 45
         self.lateral_friction = 2.0
         self.torso_target = np.array([-0.05, -0.01, 1.38])
         self.l_foot_target = np.array([-0.17, 0.55, 0.6])
@@ -84,12 +90,14 @@ class HumanoidBulletEnv(gym.Env):
 
         # indexes for joints, that aren't fixed
         self.joints_index = np.array([0, 1, 3, 5, 6, 7, 9, 12, 13, 14, 16, 19, 20, 22, 24, 25, 27])
-        self.max_forces = np.array([70, 70, 70, 100, 100, 120, 120, 100, 100, 120, 120, 25, 25, 25, 25, 25, 25])
+        self.max_forces = np.array([100, 100, 100,100, 100, 300, 300,100, 100, 300, 200, 25, 25, 25,25, 25, 25])
 
-        for i in range(29):
+        for i in range(-1,p.getNumJoints(self.robot)):
             type(self.lateral_friction), type(i), type(self.robot)
             p.changeDynamics(self.robot, i, lateralFriction=self.lateral_friction)
-        p.changeDynamics(self.robot, -1, lateralFriction=self.lateral_friction)
+        """ for i in range(-1,p.getNumJoints(self.car)):
+            type(self.lateral_friction), type(i), type(self.car)
+            p.changeDynamics(self.car, i, lateralFriction=1) """
         
         # set camera
         p.resetDebugVisualizerCamera(cameraDistance=2, cameraYaw=0, cameraPitch=0, cameraTargetPosition=[0, 0, 2])
@@ -110,15 +118,15 @@ class HumanoidBulletEnv(gym.Env):
         torso_vel, torso_angular_vel = p.getBaseVelocity(self.robot, physicsClientId=self.client_ID)
 
         #distance of each foot to target position
-        l_vec_target = p.getLinkState(self.robot, self.left_foot)[0] - self.l_foot_target
+        """ l_vec_target = p.getLinkState(self.robot, self.left_foot)[0] - self.l_foot_target
         ctct_l = np.linalg.norm(l_vec_target) 
         r_vec_target = p.getLinkState(self.robot, self.right_foot)[0] - self.r_foot_target
         ctct_r = np.linalg.norm(r_vec_target) 
 
-        contacts = [ctct_l, ctct_r]
+        contacts = [ctct_l, ctct_r] """
 
         # Joints
-        obs = p.getJointStates(self.robot, range(self.act_dim), physicsClientId=self.client_ID)  # pos, vel, reaction(6), prev_torque
+        obs = p.getJointStates(self.robot, self.joints_index, physicsClientId=self.client_ID)  # pos, vel, reaction(6), prev_torque
         joint_angles = []
         joint_velocities = []
         joint_torques = []
@@ -130,20 +138,21 @@ class HumanoidBulletEnv(gym.Env):
         # [l[4] for l in p.getLinkStates(self.robot, range(0, 13+1), physicsClientId=self.client_ID)]
         
         # link positions and contacts
-        obs = p.getLinkStates(self.robot, range(p.getNumJoints(self.robot)), physicsClientId=self.client_ID)
+        """ obs = p.getLinkStates(self.robot, range(p.getNumJoints(self.robot)), physicsClientId=self.client_ID)
         link_pos_orient = []
         for o in obs:
-            link_pos_orient.append(o[1])
+            link_pos_orient.append(o[1]) """
 
+        a = p.getNumJoints(self.robot)
         # 0/1 contact of each link to car and floor
-        contacts = [0] * (p.getNumJoints(self.robot) * 2)
+        contacts = [0] * (a * 2)
         obs = p.getContactPoints(self.robot, self.car, physicsClientId=self.client_ID)
         for o in obs:
             contacts[o[3]] = 1  # for each contact point, store 1 at index of participating robot's link
         obs = p.getContactPoints(self.robot, self.plane, physicsClientId=self.client_ID)
         for o in obs:
-            contacts[p.getNumJoints(self.robot) + o[3]] = 1  # for each contact point, store 1 at index of participating robot's link
-        
+            contacts[a + o[3]] = 1  # for each contact point, store 1 at index of participating robot's link
+                
         return torso_pos, torso_quat, torso_vel, torso_angular_vel, joint_angles, joint_velocities, joint_torques, contacts
 
     def step(self, ctrl):
@@ -170,7 +179,8 @@ class HumanoidBulletEnv(gym.Env):
         # Step the simulation.
         p.stepSimulation(physicsClientId=self.client_ID)
         if self.animate:
-             time.sleep(0.004)
+            #time.sleep(0.004)
+            time.sleep(.005)
 
         # Get new observations (Note, not all of these are required and used)
         torso_pos, torso_quat, torso_vel, torso_angular_vel, joint_angles, joint_velocities, joint_torques, contacts = self.get_obs()
@@ -186,8 +196,8 @@ class HumanoidBulletEnv(gym.Env):
         l2 = p.getLinkStates(self.robot, [12, 16])
         torso_z = (p.getLinkStates(self.robot, [0]))[0][4][2]
 
-        vec1 = (l[1][4][0] - l[0][4][0], l[1][4][1] - l[0][4][1], l[1][4][2] - l[0][4][2])
-        vec2 = (l2[1][4][0] - l2[0][4][0], l2[1][4][1] - l2[0][4][1], l2[1][4][2] - l2[0][4][2])
+        vec1 = (l[1][0][0] - l[0][0][0], l[1][0][1] - l[0][0][1], l[1][0][2] - l[0][0][2])
+        vec2 = (l2[1][0][0] - l2[0][0][0], l2[1][0][1] - l2[0][0][1], l2[1][0][2] - l2[0][0][2])
 
         vec_vychozi = [0,1,0]
 
@@ -195,63 +205,58 @@ class HumanoidBulletEnv(gym.Env):
         angle1 = math.acos(skalarni_soucin1/math.sqrt(vec1[0]*vec1[0]+vec1[1]*vec1[1]+vec1[2]*vec1[2]))
         skalarni_soucin2 = vec2[0] * vec_vychozi[0] + vec2[1] * vec_vychozi[1] + vec2[2] * vec_vychozi[2]
         angle2 = math.acos(skalarni_soucin2 / math.sqrt(vec2[0] * vec2[0] + vec2[1] * vec2[1] + vec2[2] * vec2[2]))
-
-        r_angle = (10 - abs(angle1*(10/pi))) + (10 - abs(angle2*(10/pi)))
-        
-        #r = self.r_links_outside()
-        #if r > -0.5:
-        #    r = 2*r + 7*self.r_standing() + 10*self.r_close_to_target() + self.r_tumble()
-        #else:
-        #    r = 7*r + self.r_tumble() + 5*self.r_close_to_target()
-        
-        # r = -abs(roll)*10 # turn torso to door of car
-        # r += r_angle
-
-        # pelvis and thighs, bad[0;1/3;2/3;1]good
-        sitting = (contacts[4] + contacts[8] + contacts[15]) / 3
-        # xy dist of torso from orig position
-        moved = np.linalg.norm(np.array((torso_pos[0] + 0.15, torso_pos[1] - 0.014)))
-        # moved = norm((torso_pos[:2] - (-0.1446, 0.0153)))
-        # if dist < limit -> moved=0, else -> moved > 0, good<0;xxx>bad
-        moved = max(moved - .25, 0)
-        # clip to <0;1>
-        moved = min(moved, 1)
-        # 2<0;pi> -> good<0;1>bad
+        # 2<0;pi> -> good<0;2>bad
         legs_rot = ((angle1) + (angle2)) / (pi)
         # <-pi;pi> -> <-3pi/2;pi/2> -> <0;3pi/2> -> good<0;1>bad
         torso_good_rot = abs(yaw - pi / 2)*2 / (3*pi)
         # 2<-pi;pi> -> 2<0;pi> -> good<0;1>bad
-        torso_bad_rot = (abs(pitch) + abs(roll)) / (2 * pi)
-        # roll + yaw can be up to pi/6
-        torso_bad_rot = max(torso_bad_rot - 1 / 3, 0)
-        sitting = p.getLinkState(self.robot, 4)[0][2] - 1.101
-        sitting = max(sitting - 0.01, 0)
-        sitting = 1 - sitting*5
-        sitting = max(-1, sitting)
 
-        abdomen_rot = 2 * (1 - (abs(joint_angles[0]) / 0.7853981852531433) - 0.5)
-
-        r = (3*(1-legs_rot) + (-(torso_good_rot - .5)*2) + 2*(1-(sitting-.5)*2) + abdomen_rot + 2*self.r_close_to_target())/9
-        #r = (self.r_close_to_target())
-        """reward
-        """
-
-        # get joint_angles into np array and make observation
-        scaled_joint_angles = self.rads_to_norm(joint_angles)
         joint_angles_n = ((joint_angles - self.joints_rad_low) / self.joints_rad_diff) * 2 - 1
         yaw = ((yaw + pi) / (2 * pi)) * 2 - 1
         roll = ((roll + pi) / (2 * pi)) * 2 - 1
         pitch = ((pitch + pi) / (2 * pi)) * 2 - 1
+
+        feet, pelvis, neck = self.feet_pelvis_neck_movement()
+        r_neg = neck*2 + pelvis*3 + feet
+        r_pos = (1-torso_good_rot)*2 + (2 - legs_rot) + (1 - (abs(roll) + abs(pitch))/2)*3
+        r = np.clip(r_pos - r_neg, -5, 5)
+        """reward
+        """
+
+        # get joint_angles into np array and make observation
         env_obs = np.concatenate((torso_pos, [roll, pitch, yaw], joint_angles_n, joint_velocities, contacts)).astype(np.float32)
 
         # This condition terminates the episode - WARNING - it can cause that the robot will try 
         # terminate the episode as quickly as possible
-        done = self.step_ctr > self.max_steps  or abs(r-1) < 0.1 or torso_z < 1
+        #done = self.step_ctr > self.max_steps or (np.abs(roll) > 1.5 or np.abs(pitch) > 1.5) or torso_z < 1 or (legs_rot <.2 and abs(yaw-pi/2) < .2) 
+        done = self.step_ctr > self.max_steps or (np.abs(roll) > .5 or np.abs(pitch) > .5) or torso_z < 1 or (angle1 < .05 and angle2 < .05 and abs(yaw-.5) < .1) 
 
         # TODO: why random element?
         env_obs_noisy = env_obs# + np.random.rand(self.obs_dim).astype(np.float32) * 0.1 - 0.05
+        info = {'rotated':(angle1 < .2 and angle2 < .2 and abs(yaw-.5) < .2)}#,"joints":joint_angles,"pos":torso_pos,"quat":torso_quat}
+        #info = {}
 
-        return env_obs_noisy, r, done, {}
+        return env_obs_noisy, r, done, info
+    
+    def feet_pelvis_neck_movement(self):
+        left_foot = p.getLinkState(self.robot, self.left_foot)[0]
+        right_foot = p.getLinkState(self.robot, self.right_foot)[0]
+        pelvis = p.getLinkState(self.robot, self.pelvis)[0]
+
+        height = (left_foot[2],right_foot[2])
+        h = np.clip((abs(height[0] - self.target_h) + abs(height[1] - self.target_h))*2,0 , 2)
+
+        p_or = self.pelvis_orig
+        pelvis_shift = np.linalg.norm(np.array((pelvis[0] - p_or[0], (pelvis[1] - p_or[1])*.5, pelvis[2] - p_or[2])))
+        p_r = np.clip(pelvis_shift*5, 0, 1)
+
+        left_shoulder = p.getLinkState(self.robot, self.left_shoulder)[0]
+        right_shoulder = p.getLinkState(self.robot, self.right_shoulder)[0]
+        neck = ((left_shoulder[0]+right_shoulder[0])/2, (left_shoulder[1]+right_shoulder[1])/2)
+        n_r = np.linalg.norm(np.array((pelvis[0] - neck[0], pelvis[1] - neck[1])))
+        n_r = np.clip(n_r*5, 0, 1)
+
+        return h, p_r, n_r
 
     def reset(self):
         # Reset the robot to initial position and orientation and null the motors
@@ -264,18 +269,30 @@ class HumanoidBulletEnv(gym.Env):
         [p.resetJointState(self.robot, i, joint_init_pos_list[i], 0, physicsClientId=self.client_ID) for i in range(29)]
         p.resetBasePositionAndOrientation(self.robot, [-0.1, 0, 1.48], [0, 0, 0, 1], physicsClientId=self.client_ID)
         p.resetBaseVelocity(self.robot, [0, 0, 0], [0, 0, 0])
+
         p.setJointMotorControlArray(bodyUniqueId=self.robot,
-                                    jointIndices=range(self.act_dim),
+                                    jointIndices=range(29),
                                     controlMode=p.POSITION_CONTROL,
-                                    targetPositions=[0] * self.act_dim,
-                                    forces=[0] * self.act_dim,
+                                    targetPositions=joint_init_pos_list,
+                                    forces=[100]*29,
+                                    positionGains=[0] * 29 ,
+                                    velocityGains=[0] * 29 ,
                                     physicsClientId=self.client_ID)
 
         # Step a few times so stuff settles down
-        for i in range(100):
+        for i in range(50):
             p.stepSimulation(physicsClientId=self.client_ID)
 
         self.step_ctr = 0
+
+        left_foot = p.getLinkState(self.robot, self.left_foot)[0]
+        right_foot = p.getLinkState(self.robot, self.right_foot)[0]
+        pelvis = p.getLinkState(self.robot, self.pelvis)[0]
+        left_radius = np.linalg.norm(np.array((left_foot[0] - pelvis[0], left_foot[1] - pelvis[1])))
+        right_radius = np.linalg.norm(np.array((right_foot[0] - pelvis[0], right_foot[1] - pelvis[1])))
+
+        self.pelvis_orig = pelvis
+        self.target_h = (left_foot[2]+right_foot[2])/2
         # Return initial obs
         obs, _, _, _ = self.step(np.zeros(self.act_dim))
         return obs
@@ -311,8 +328,7 @@ class HumanoidBulletEnv(gym.Env):
         r_vec_target = p.getLinkState(self.robot, self.right_foot)[0] - self.r_foot_target
         dist_r = np.linalg.norm(r_vec_target)
         t_vec_target = p.getBasePositionAndOrientation(self.robot, physicsClientId=self.client_ID)[0] - self.torso_target
-        # ignore z coordinate, should be good when xy are correct and joints are set
-        dist_t = np.linalg.norm(t_vec_target[:2])
+        dist_t = np.linalg.norm(t_vec_target)
 
         if self.step_ctr == 1:
             self.max_dist = dist_l+dist_r+dist_t
@@ -359,13 +375,16 @@ class HumanoidBulletEnv(gym.Env):
 if __name__ == "__main__":
     model = HumanoidBulletEnv(True)
     p.setRealTimeSimulation(1)
-    
     while(1):
+
+        a = 1
         keys = p.getKeyboardEvents()
         for k in keys:
             if (keys[k] & p.KEY_WAS_TRIGGERED):
                 if (k == ord('i')):
                     model.reset()
+            if k == ord('o'):
+                    o = model.get_obs()
           
                 
                 
