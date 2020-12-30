@@ -6,12 +6,13 @@ from stable_baselines3.common.monitor import Monitor
 from stable_baselines3.common.callbacks import BaseCallback
 from stable_baselines3.common.results_plotter import load_results, ts2xy
 
-from humanoid import HumanoidBulletEnv
+# from humanoid import HumanoidBulletEnv
+from learning_to_stand import HumanoidBulletEnv
 
 from typing import Callable
 import numpy as np
 
-N_PROCESS = 4
+N_PROCESS = 1
 
 class myCallback(BaseCallback):
     def __init__(self,  log_dir: str, check_freq=100):
@@ -64,7 +65,7 @@ if __name__ == "__main__":
     train = True
     
     if train:
-        env = SubprocVecEnv([lambda: Monitor(HumanoidBulletEnv(animate=False, max_steps=env_max_steps)) for i in range(config["n_envs"])])
+        env = SubprocVecEnv([lambda: Monitor(HumanoidBulletEnv(animate=True, max_steps=env_max_steps)) for i in range(config["n_envs"])])
         env = VecNormalize(env, norm_obs=True, norm_reward=True, clip_obs=20.,clip_reward=20.)
         lr = linear_schedule(config["learning_rate"])
         model = A2C(config["policy_name"],
