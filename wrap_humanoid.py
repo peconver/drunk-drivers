@@ -7,6 +7,7 @@ from stable_baselines3.common.callbacks import BaseCallback
 from stable_baselines3.common.results_plotter import load_results, ts2xy
 
 from humanoid import HumanoidBulletEnv
+#from humanoid_out import HumanoidBulletEnv # if you want train getting up when humanoid is right rotated 
 
 from typing import Callable
 import numpy as np
